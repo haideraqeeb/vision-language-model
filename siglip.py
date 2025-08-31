@@ -70,6 +70,53 @@ class SigLipVisionEmbeddings(nn.Module):
 
         return embeddings
 
+class SigLipMLP(nn.Module):
+    def __init__(self, config: SiglipVisionConfig):
+        super().__init__()
+        self.config = config
+        self.fc1 = nn.Linear(config.hidden_size, config.intermediate_size)
+        self.fc2 = nn.Linear(config.intermediate_size, config.hidden_size)
+
+    def forward(self, hidden_states):
+        hidden_states = self.fc1(hidden_states)
+
+        hidden_states = nn.functional.gelu(hidden_states, approximate="tanh")
+
+        hidden_states = self.fc2(hidden_states)
+
+        return hidden_states
+
+class SigLipVisionEncoder(nn.Module):
+    def __init__(self, config: SiglipVisionConfig):
+        super().__init__()
+        self.embed_dim = config.hidden_size
+        self.self_attn = SigLipAttention(config)
+        self.layer_norm1 = nn.LayerNorm(self.embed_dim, eps=config.layer_norm_eps)
+        self.mlp = SigLipMLP(config)
+        self.layer_norm2 = nn.LayerNorm(self.embed_dim, eps=config.layer_norm_eps)
+
+    def forward(
+        self,
+        hidden_states: torch.Tensor
+    ) -> torch.Tensor:
+        residual = hidden_states
+
+        hidden_states = self.layer_norm1(hidden_states)
+
+        hidden_states, _ = self.self_attn(hidden_states=hidden_states)
+
+        hidden_states = residual + hidden_states
+
+        residual = hidden_states
+
+        hidden_states = self.layer_norm2(hidden_states)
+
+        hidden_states = self.mlp(hidden_states)
+
+        hidden_states = residual + hidden_states
+
+        return hidden_states
+
 class SigLipVisionTransformer(nn.Module):
     def __init__(self, config: SiglipVisionConfig):
         super().__init__()
