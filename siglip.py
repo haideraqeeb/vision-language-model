@@ -1,3 +1,4 @@
+from json import encoder
 from turtle import forward
 import torch
 import torch.nn as nn
@@ -157,7 +158,7 @@ class SigLipAttention(nn.Module):
 
         return attn_output, attn_weights
 
-class SigLipVisionEncoder(nn.Module):
+class SigLipEncoderLayer(nn.Module):
     def __init__(self, config: SiglipVisionConfig):
         super().__init__()
         self.embed_dim = config.hidden_size
@@ -188,6 +189,25 @@ class SigLipVisionEncoder(nn.Module):
 
         return hidden_states
 
+class SigLipEncoder(nn.Module):
+    def __init__(self, config: SiglipVisionConfig):
+        super().__init__()
+        self.config = config
+        self.layers = nn.ModuleList(
+            [SigLipEncoderLayer(config) for _ in range(config.num_hidden_layers)]
+        )
+    
+    def forward(
+        self, 
+        inputs_embeds: torch.Tensor
+    ) -> torch.Tensor:
+        hidden_states = inputs_embeds
+
+        for encoder_layer in self.layers:
+            hidden_states = encoder_layer(hidden_states)
+
+        return hidden_states
+
 class SigLipVisionTransformer(nn.Module):
     def __init__(self, config: SiglipVisionConfig):
         super().__init__()
@@ -195,7 +215,7 @@ class SigLipVisionTransformer(nn.Module):
         embed_dim = config.hidden_size
 
         self.embeddings = SigLipVisionEmbeddings(config)
-        self.enoder = SigLipVisionEncoder(config)
+        self.enoder = SigLipEncoder(config)
         self.post_layernorm = nn.LayerNorm(embed_dim, eps=config.layer_norm_eps)
 
     def forward(self, pixel_values: torch.Tensor) -> torch.Tensor:
