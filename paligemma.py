@@ -6,7 +6,7 @@ import torch
 IMAGENET_STANDARD_MEAN = [0.5, 0.5, 0.5]
 IMAGENET_STANDARD_STD = [0.5, 0.5, 0.5]
 
-def add_image_tokens_to_prompt(prefix_prompt, bos_token, image_seq_len, image_token):
+def add_image_to_tokens_prompt(prefix_prompt, bos_token, image_seq_len, image_token):
     # Quoting from the blog (https://huggingface.co/blog/paligemma#detailed-inference-process):
     #   The input text is tokenized normally.
     #   A <bos> token is added at the beginning, and an additional newline token (\n) is appended.
