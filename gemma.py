@@ -85,6 +85,40 @@ class PaliGemmaForConditionalGeneration(nn.Module):
 
     def tie_weights(self):
         return self.language_model.tie_weights()
+    
+    def _merge_input_ids_with_image_features(
+        self, 
+        image_features: torch.Tensor, 
+        input_embeds: torch.Tensor, 
+        input_ids: torch.Tensor, 
+        attention_mask: torch.Tensor, 
+        kv_cache: Optional[KVCache] = None
+    ):
+        _, _, embed_dim = image_features.shape()
+        batch_size, sequence_length = input_ids.shape()
+        dtype, device = input_embeds.dtype, input_embeds.device
+
+        scaled_image_features = image_features / (self.config.hidden_size ** 0.5)
+
+        final_embedding = torch.zeros(batch_size, sequence_length, embed_dim, dtype=input_embeds.dtype, device=input_embed.device)
+
+        text_mask = (input_ids != self.config.image_token_index) & (input_ids != self.pad_token_id)
+
+        image_mask = input_ids == self.config.image_token_index
+
+        pad_mask = input_ids == self.pad_token_id
+
+        text_mask_expanded = text_mask.unsqueeze(-1).expand(-1, -1, embed_dim)
+        pad_mask_expanded = pad_mask.unsqueeze(-1).expand(-1, -1, embed_dim)
+        image_mask_expanded = image_mask.unsqueeze(-1).expand(-1, -1, embed_dim)
+
+        final_embedding = torch.where(text_mask_expanded, input_embeds, final_embedding)
+
+        final_embedding = final_embedding.masked_scatter(image_mask_expanded, scaled_image_features)
+
+        final_embedding = torch.where(pad_mask_expanded, torch.zeros_like(final_embedding), final_embedding)
+
+        return final_embedding
  
     def forward(
         self,
