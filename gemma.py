@@ -70,6 +70,32 @@ class PaliGemmaConfig():
         self.text_config.num_image_tokens = (self.vision_config.image_size // self.vision_config.patch_size) ** 2
         self.vision_config.projection_dim = projection_dim
 
+class GemmaForCausalLM(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        self.config = config
+        self.model = GemmaModel(config)
+        self.vocab_size = config.vocab_size
+        self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
+
+    def get_input_embeddings(self):
+        return self.model.embed_tokens
+    
+    def tie_weights(self):
+        self.lm_head.weight = self.model.embed_tokens.weight
+
+
+
+class PaliGemmaMultiModalProjector(nn.Module):
+    def __init__(self, config: PaliGemmaConfig):
+        super().__init__()
+        self.linear = nn.Linear(config.vision_config.hidden_size, config.vision_config.projection_dim, bias=True)
+
+    def forward(self, image_features):
+        # [Batch_Size, Num_Patches, Embed_Dim] -> [Batch_Size, Num_Patches, Projection_Dim]
+        hidden_states = self.linear(image_features)
+        return hidden_states
+
 class PaliGemmaForConditionalGeneration(nn.Module):
     def __init__(self, config: PaliGemmaConfig):
         super().__init__()
